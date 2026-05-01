@@ -1,6 +1,6 @@
 # pi-nvidia-nim
 
-NVIDIA NIM API provider extension for [pi coding agent](https://github.com/badlogic/pi-mono) - access 100+ models from [build.nvidia.com](https://build.nvidia.com) including DeepSeek V3.2, Kimi K2.5, MiniMax M2.1, GLM-5, GLM-4.7, Qwen3, Llama 4, and many more.
+NVIDIA NIM API provider extension for [pi coding agent](https://github.com/badlogic/pi-mono) - access 100+ models from [build.nvidia.com](https://build.nvidia.com) including DeepSeek V4 Flash/Pro, DeepSeek V3.2, Kimi K2.6, MiniMax M2.1, GLM-5, GLM-4.7, Qwen3, Llama 4, and many more.
 
 https://github.com/user-attachments/assets/f44773e4-9bf8-4bb5-a9c0-d5938030701c
 
@@ -17,10 +17,14 @@ https://github.com/user-attachments/assets/f44773e4-9bf8-4bb5-a9c0-d5938030701c
 ### 2. Set Your API Key
 
 ```bash
+# Preferred by this extension
 export NVIDIA_NIM_API_KEY=nvapi-your-key-here
+
+# Also supported, matching NVIDIA's website examples
+export NVIDIA_API_KEY=nvapi-your-key-here
 ```
 
-Add this to your `~/.bashrc`, `~/.zshrc`, or shell profile to persist it.
+Add one of these to your `~/.bashrc`, `~/.zshrc`, or shell profile to persist it.
 
 ### 3. Install the Extension
 
@@ -53,10 +57,10 @@ Once loaded, NVIDIA NIM models appear in the `/model` selector under the `nvidia
 
 ```bash
 # Use a specific NIM model directly
-pi --provider nvidia-nim --model "deepseek-ai/deepseek-v3.2"
+pi --provider nvidia-nim --model "deepseek-ai/deepseek-v4-flash"
 
 # With thinking enabled
-pi --provider nvidia-nim --model "deepseek-ai/deepseek-v3.2" --thinking low
+pi --provider nvidia-nim --model "deepseek-ai/deepseek-v4-flash" --thinking high
 
 # Limit model cycling to NIM models
 pi --models "nvidia-nim/*"
@@ -70,11 +74,12 @@ NVIDIA NIM models use a non-standard `chat_template_kwargs` parameter to enable 
 
 When you change the thinking level in pi (`Shift+Tab` to cycle), the extension:
 
-1. **Maps `"minimal"` → `"low"`** - NIM only accepts `low`, `medium`, `high` (not `minimal`). Selecting "minimal" in pi works fine; it's silently mapped.
+1. **Maps thinking levels** to values each NIM model accepts. For DeepSeek V4, `xhigh` maps to `max`; lower enabled levels use `high`.
 2. **Injects `chat_template_kwargs`** per model to actually enable thinking:
+   - DeepSeek V4: `{ thinking: true, reasoning_effort: "high" | "max" }`
    - DeepSeek V3.x, R1 distills: `{ thinking: true }`
    - GLM-5, GLM-4.7: `{ enable_thinking: true, clear_thinking: false }`
-   - Kimi K2.5, K2-thinking: `{ thinking: true }`
+   - Kimi K2.6, K2-thinking: `{ thinking: true }`
    - Qwen3, QwQ: `{ enable_thinking: true }`
 3. **Explicitly disables thinking** when the level is "off" for models that think by default (e.g., GLM-5, GLM-4.7).
 4. **Uses `system` role** instead of `developer` for all NIM models - the `developer` role combined with `chat_template_kwargs` causes 500 errors on NIM.
@@ -84,22 +89,25 @@ When you change the thinking level in pi (`Shift+Tab` to cycle), the extension:
 | pi Level | NIM Mapping | Effect |
 |----------|-------------|--------|
 | off | No kwargs (or explicit disable) | No reasoning output |
-| minimal | Mapped to "low" | Thinking enabled |
-| low | low | Thinking enabled |
-| medium | medium | Thinking enabled |
+| minimal | low, or high for DeepSeek V4 | Thinking enabled |
+| low | low, or high for DeepSeek V4 | Thinking enabled |
+| medium | medium, or high for DeepSeek V4 | Thinking enabled |
 | high | high | Thinking enabled |
+| xhigh | high, or max for DeepSeek V4 | Maximum supported thinking |
 
 ## Available Models
 
-The extension ships with curated metadata for 39 featured models. At startup, it also queries the NVIDIA NIM API to discover additional models automatically.
+The extension ships with curated metadata for 42 featured models. At startup, it also queries the NVIDIA NIM API to discover additional models automatically.
 
 ### Featured Models
 
 | Model | Reasoning | Vision | Context |
 |-------|-----------|--------|---------|
+| `deepseek-ai/deepseek-v4-flash` | ✅ | | 1M |
+| `deepseek-ai/deepseek-v4-pro` | ✅ | | 1M |
 | `deepseek-ai/deepseek-v3.2` | ✅ | | 128K |
 | `deepseek-ai/deepseek-v3.1` | ✅ | | 128K |
-| `moonshotai/kimi-k2.5` | ✅ | | 256K |
+| `moonshotai/kimi-k2.6` | ✅ | | 256K |
 | `moonshotai/kimi-k2-thinking` | ✅ | | 128K |
 | `minimaxai/minimax-m2.1` | | | 1M |
 | `z-ai/glm5` | ✅ | | 128K |
@@ -121,7 +129,7 @@ The extension ships with curated metadata for 39 featured models. At startup, it
 
 ### Tool Calling
 
-All major models support OpenAI-compatible tool calling. Tested and confirmed working with DeepSeek V3.2, GLM-5, GLM-4.7, Qwen3, Kimi K2.5, and others.
+All major models support OpenAI-compatible tool calling. Tested and confirmed working with DeepSeek V4/V3.2, GLM-5, GLM-4.7, Qwen3, Kimi K2.6, and others.
 
 ## How It Works
 
@@ -130,13 +138,13 @@ This extension uses `pi.registerProvider()` to register NVIDIA NIM as a custom p
 The custom streamer:
 1. Intercepts the request payload via `onPayload` callback
 2. Injects `chat_template_kwargs` for models that need it to enable thinking
-3. Maps unsupported thinking levels (`minimal` → `low`)
+3. Maps unsupported thinking levels to NIM-compatible values (`minimal` → `low`; `xhigh` → `high` or DeepSeek V4 `max`)
 4. Suppresses `reasoning_effort` for models that don't respond to it (e.g., DeepSeek without kwargs)
 5. Uses the standard OpenAI SSE streaming format - pi already parses `reasoning_content` and `reasoning` fields from streaming deltas
 
 ## Configuration
 
-The only configuration needed is the `NVIDIA_NIM_API_KEY` environment variable. All models on NVIDIA NIM are free during the preview period (with rate limits).
+The only configuration needed is either the `NVIDIA_NIM_API_KEY` or `NVIDIA_API_KEY` environment variable. All models on NVIDIA NIM are free during the preview period (with rate limits).
 
 ## Notes
 

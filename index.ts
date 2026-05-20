@@ -134,6 +134,11 @@ const THINKING_CONFIGS: Record<string, ThinkingConfig> = {
 		disableKwargs: { thinking: false },
 		sendReasoningEffort: true,
 	},
+	"google/gemma-4-31b-it": {
+		enableKwargs: { thinking: true },
+		disableKwargs: { thinking: false },
+		sendReasoningEffort: true,
+	},
 	"moonshotai/kimi-k2-thinking": {
 		enableKwargs: { thinking: true },
 		disableKwargs: { thinking: false },
@@ -167,6 +172,11 @@ const THINKING_CONFIGS: Record<string, ThinkingConfig> = {
 		disableKwargs: { thinking: false },
 		sendReasoningEffort: true,
 	},
+	"nvidia/nemotron-3-nano-30b-a3b": {
+		enableKwargs: { thinking: true },
+		disableKwargs: { thinking: false },
+		sendReasoningEffort: true,
+	},
 	"nvidia/llama-3.1-nemotron-ultra-253b-v1": {
 		enableKwargs: { thinking: true },
 		disableKwargs: { thinking: false },
@@ -194,6 +204,7 @@ const REASONING_MODELS = new Set(Object.keys(THINKING_CONFIGS));
 
 // Models known to support image/vision input
 const VISION_MODELS = new Set([
+	"google/gemma-4-31b-it",
 	"meta/llama-3.2-11b-vision-instruct",
 	"meta/llama-3.2-90b-vision-instruct",
 	"microsoft/phi-3-vision-128k-instruct",
@@ -271,6 +282,7 @@ const CONTEXT_WINDOWS: Record<string, number> = {
 	"moonshotai/kimi-k2-instruct-0905": 131072,
 	"moonshotai/kimi-k2-thinking": 131072,
 	"moonshotai/kimi-k2.6": 262144,
+	"google/gemma-4-31b-it": 262144,
 	// MiniMax
 	"minimaxai/minimax-m2": 1048576,
 	"minimaxai/minimax-m2.1": 1048576,
@@ -346,6 +358,7 @@ const CONTEXT_WINDOWS: Record<string, number> = {
 	"nvidia/nemotron-4-340b-instruct": 4096,
 	"nvidia/nvidia-nemotron-nano-9b-v2": 131072,
 	"nvidia/nemotron-3-nano-omni-30b-a3b-reasoning": 262144,
+	"nvidia/nemotron-3-nano-30b-a3b": 1048576,
 	// OpenAI open-source
 	"openai/gpt-oss-120b": 131072,
 	"openai/gpt-oss-20b": 131072,
@@ -398,6 +411,7 @@ const MAX_TOKENS: Record<string, number> = {
 	"deepseek-ai/deepseek-v4-flash": 16384,
 	"deepseek-ai/deepseek-v4-pro": 16384,
 	"moonshotai/kimi-k2.6": 16384,
+	"google/gemma-4-31b-it": 16384,
 	"moonshotai/kimi-k2-instruct": 8192,
 	"moonshotai/kimi-k2-thinking": 16384,
 	"minimaxai/minimax-m2": 8192,
@@ -410,6 +424,7 @@ const MAX_TOKENS: Record<string, number> = {
 	"qwen/qwen3-coder-480b-a35b-instruct": 65536,
 	"nvidia/llama-3.1-nemotron-ultra-253b-v1": 32768,
 	"nvidia/nemotron-3-nano-omni-30b-a3b-reasoning": 65536,
+	"nvidia/nemotron-3-nano-30b-a3b": 65536,
 	"openai/gpt-oss-120b": 16384,
 	"openai/gpt-oss-20b": 16384,
 	"mistralai/mistral-large-3-675b-instruct-2512": 16384,
@@ -429,6 +444,7 @@ const FEATURED_MODELS = [
 	"deepseek-ai/deepseek-v3.1-terminus",
 	"moonshotai/kimi-k2.6",
 	"moonshotai/kimi-k2-thinking",
+	"google/gemma-4-31b-it",
 	"moonshotai/kimi-k2-instruct",
 	"moonshotai/kimi-k2-instruct-0905",
 	"minimaxai/minimax-m2.1",
@@ -464,6 +480,7 @@ const FEATURED_MODELS = [
 	"nvidia/llama-3.3-nemotron-super-49b-v1.5",
 	"nvidia/llama-3.3-nemotron-super-49b-v1",
 	"nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+	"nvidia/nemotron-3-nano-30b-a3b",
 	// DeepSeek R1 distilled
 	"deepseek-ai/deepseek-r1-distill-qwen-32b",
 	"deepseek-ai/deepseek-r1-distill-qwen-14b",

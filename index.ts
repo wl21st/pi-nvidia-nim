@@ -162,6 +162,11 @@ const THINKING_CONFIGS: Record<string, ThinkingConfig> = {
 		disableKwargs: { enable_thinking: false },
 	},
 	// NVIDIA Nemotron reasoning models
+	"nvidia/nemotron-3-nano-omni-30b-a3b-reasoning": {
+		enableKwargs: { thinking: true },
+		disableKwargs: { thinking: false },
+		sendReasoningEffort: true,
+	},
 	"nvidia/llama-3.1-nemotron-ultra-253b-v1": {
 		enableKwargs: { thinking: true },
 		disableKwargs: { thinking: false },
@@ -195,6 +200,7 @@ const VISION_MODELS = new Set([
 	"microsoft/phi-3.5-vision-instruct",
 	"microsoft/phi-4-multimodal-instruct",
 	"nvidia/llama-3.1-nemotron-nano-vl-8b-v1",
+	"nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
 	"nvidia/nemotron-nano-12b-v2-vl",
 	"nvidia/cosmos-reason2-8b",
 ]);
@@ -339,6 +345,7 @@ const CONTEXT_WINDOWS: Record<string, number> = {
 	"nvidia/llama-3.3-nemotron-super-49b-v1.5": 131072,
 	"nvidia/nemotron-4-340b-instruct": 4096,
 	"nvidia/nvidia-nemotron-nano-9b-v2": 131072,
+	"nvidia/nemotron-3-nano-omni-30b-a3b-reasoning": 262144,
 	// OpenAI open-source
 	"openai/gpt-oss-120b": 131072,
 	"openai/gpt-oss-20b": 131072,
@@ -402,6 +409,7 @@ const MAX_TOKENS: Record<string, number> = {
 	"z-ai/glm5": 16384,
 	"qwen/qwen3-coder-480b-a35b-instruct": 65536,
 	"nvidia/llama-3.1-nemotron-ultra-253b-v1": 32768,
+	"nvidia/nemotron-3-nano-omni-30b-a3b-reasoning": 65536,
 	"openai/gpt-oss-120b": 16384,
 	"openai/gpt-oss-20b": 16384,
 	"mistralai/mistral-large-3-675b-instruct-2512": 16384,
@@ -455,6 +463,7 @@ const FEATURED_MODELS = [
 	"nvidia/llama-3.1-nemotron-ultra-253b-v1",
 	"nvidia/llama-3.3-nemotron-super-49b-v1.5",
 	"nvidia/llama-3.3-nemotron-super-49b-v1",
+	"nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
 	// DeepSeek R1 distilled
 	"deepseek-ai/deepseek-r1-distill-qwen-32b",
 	"deepseek-ai/deepseek-r1-distill-qwen-14b",

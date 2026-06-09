@@ -524,8 +524,27 @@ function getNimApiKey(): string | undefined {
 	return apiKey?.trim() || undefined;
 }
 
+function getNimProviderApiKeyConfig(): string {
+	return `$${getNimApiKeyEnv() ?? NVIDIA_NIM_API_KEY_ENV}`;
+}
+
 function isNimApiKeyEnvName(value: string): value is NimApiKeyEnvName {
 	return NVIDIA_API_KEY_ENV_NAMES.includes(value as NimApiKeyEnvName);
+}
+
+function isNimApiKeyEnvReference(value: string): boolean {
+	return value.startsWith("$") && isNimApiKeyEnvName(value.slice(1));
+}
+
+function isNimApiKeyEnvPlaceholder(value: string): boolean {
+	return isNimApiKeyEnvName(value) || isNimApiKeyEnvReference(value);
+}
+
+function resolveNimApiKeyEnvReference(value: string): string | undefined {
+	if (!isNimApiKeyEnvReference(value)) return undefined;
+
+	const envValue = process.env[value.slice(1)]?.trim();
+	return envValue || undefined;
 }
 
 function isNimApiKeyEnvValue(value: string): boolean {
@@ -596,15 +615,19 @@ function resolveNimApiKey(apiKey: string | undefined, authStorage?: AuthStorageL
 
 	if (
 		hasStoredCommandCredential &&
-		(!resolvedApiKey || isNimApiKeyEnvName(resolvedApiKey) || isNimApiKeyEnvValue(resolvedApiKey))
+		(!resolvedApiKey || isNimApiKeyEnvPlaceholder(resolvedApiKey) || isNimApiKeyEnvValue(resolvedApiKey))
 	) {
 		throw new Error("NVIDIA NIM API key command resolved to an empty value.");
 	}
 
 	const storedApiKey = getStoredResolvedNimApiKey(authStorage);
-	if (storedApiKey && (!resolvedApiKey || isNimApiKeyEnvName(resolvedApiKey))) return storedApiKey;
+	if (storedApiKey && (!resolvedApiKey || isNimApiKeyEnvPlaceholder(resolvedApiKey))) return storedApiKey;
 
-	if (resolvedApiKey && !isNimApiKeyEnvName(resolvedApiKey)) return resolvedApiKey;
+	if (resolvedApiKey) {
+		const envReferenceApiKey = resolveNimApiKeyEnvReference(resolvedApiKey);
+		if (envReferenceApiKey) return envReferenceApiKey;
+		if (!isNimApiKeyEnvPlaceholder(resolvedApiKey)) return resolvedApiKey;
+	}
 
 	return getNimApiKey();
 }
@@ -639,6 +662,20 @@ function buildThinkingKwargs(
 		kwargs.reasoning_effort = mapDeepSeekV4Reasoning(reasoning);
 	}
 	return kwargs;
+}
+
+function buildNimRequestHeaders(headers: SimpleStreamOptions["headers"], apiKey: string): Record<string, string> {
+	const resolvedHeaders: Record<string, string> = {};
+
+	for (const [key, value] of Object.entries(headers ?? {})) {
+		if (key.toLowerCase() === "authorization") continue;
+		resolvedHeaders[key] = value;
+	}
+
+	return {
+		...resolvedHeaders,
+		Authorization: `Bearer ${apiKey}`,
+	};
 }
 
 function nimStreamSimple(
@@ -680,6 +717,7 @@ function nimStreamSimple(
 		...options,
 		reasoning: effectiveReasoning,
 		apiKey: nimApiKey,
+		headers: buildNimRequestHeaders(options?.headers, nimApiKey),
 		onPayload: (params: unknown) => {
 			const p = params as Record<string, unknown>;
 
@@ -860,7 +898,7 @@ async function fetchNimModels(apiKey: string): Promise<NimModelFetchResult> {
 // =============================================================================
 
 export default function (pi: ExtensionAPI) {
-	const providerApiKeyConfig = getNimApiKeyEnv() ?? NVIDIA_NIM_API_KEY_ENV;
+	const providerApiKeyConfig = getNimProviderApiKeyConfig();
 
 	// Always register the curated model list. The request path resolves credentials
 	// through pi first (CLI override, auth.json, shell command), then falls back to
@@ -923,7 +961,7 @@ export default function (pi: ExtensionAPI) {
 			const allModels = Array.from(modelMap.values());
 			ctx.modelRegistry.registerProvider(PROVIDER_NAME, {
 				baseUrl: NVIDIA_NIM_BASE_URL,
-				apiKey: getNimApiKeyEnv() ?? NVIDIA_NIM_API_KEY_ENV,
+				apiKey: getNimProviderApiKeyConfig(),
 				api: "openai-completions",
 				authHeader: true,
 				models: allModels,

@@ -11,6 +11,8 @@ import extension from "../index.ts";
 delete process.env.NVIDIA_NIM_API_KEY;
 delete process.env.NVIDIA_API_KEY;
 
+const EXPLICIT_NVIDIA_NIM_API_KEY_REF = "$NVIDIA_NIM_API_KEY";
+
 function createUserContext() {
 	return {
 		messages: [
@@ -52,6 +54,20 @@ function usePiAgentDir(t, agentDir) {
 		}
 	});
 }
+
+test("registers provider with an explicit NVIDIA_NIM_API_KEY env reference", () => {
+	let providerConfig;
+
+	extension({
+		registerProvider(name, config) {
+			assert.equal(name, "nvidia-nim");
+			providerConfig = config;
+		},
+		on() {},
+	});
+
+	assert.equal(providerConfig?.apiKey, EXPLICIT_NVIDIA_NIM_API_KEY_REF);
+});
 
 test("uses auth.json literal identifier-shaped NVIDIA NIM credentials for provider requests", async (t) => {
 	const tempDir = mkdtempSync(join(tmpdir(), "pi-nvidia-nim-"));
@@ -231,7 +247,7 @@ test("uses NVIDIA_NIM_API_KEY env fallback when the resolved request key is stil
 	assert.ok(model, "expected deepseek-ai/deepseek-v3.2 to be registered");
 
 	const apiKey = await getModelRequestApiKey(modelRegistry, model);
-	assert.equal(apiKey, "NVIDIA_NIM_API_KEY");
+	assert.equal(apiKey, EXPLICIT_NVIDIA_NIM_API_KEY_REF);
 
 	const originalFetch = globalThis.fetch;
 	const originalEnv = process.env.NVIDIA_NIM_API_KEY;
@@ -275,6 +291,77 @@ test("uses NVIDIA_NIM_API_KEY env fallback when the resolved request key is stil
 	assert.equal(sawErrorEvent, true);
 });
 
+test("rewrites stale Authorization headers after resolving env placeholder request keys", async (t) => {
+	const tempDir = mkdtempSync(join(tmpdir(), "pi-nvidia-nim-"));
+	t.after(() => rmSync(tempDir, { recursive: true, force: true }));
+	usePiAgentDir(t, tempDir);
+
+	const authStorage = createAuthStorage(join(tempDir, "auth.json"));
+	const modelRegistry = createModelRegistry(authStorage, tempDir);
+
+	let providerConfig;
+	extension({
+		registerProvider(name, config) {
+			providerConfig = config;
+			modelRegistry.registerProvider(name, config);
+		},
+		on() {},
+	});
+
+	const model = modelRegistry.find("nvidia-nim", "deepseek-ai/deepseek-v3.2");
+	assert.ok(model, "expected deepseek-ai/deepseek-v3.2 to be registered");
+
+	const originalFetch = globalThis.fetch;
+	const originalEnv = process.env.NVIDIA_NIM_API_KEY;
+	process.env.NVIDIA_NIM_API_KEY = "nvapi-test-key";
+
+	let requestUrl;
+	let authorizationHeader;
+	let testHeader;
+
+	globalThis.fetch = async (url, init) => {
+		requestUrl = String(url);
+		const headers = new Headers(init?.headers);
+		authorizationHeader = headers.get("authorization");
+		testHeader = headers.get("x-test-header");
+		return new Response("unauthorized", {
+			status: 401,
+			headers: { "content-type": "text/plain" },
+		});
+	};
+
+	t.after(() => {
+		globalThis.fetch = originalFetch;
+		if (originalEnv === undefined) {
+			delete process.env.NVIDIA_NIM_API_KEY;
+		} else {
+			process.env.NVIDIA_NIM_API_KEY = originalEnv;
+		}
+	});
+
+	const stream = providerConfig.streamSimple(model, createUserContext(), {
+		apiKey: EXPLICIT_NVIDIA_NIM_API_KEY_REF,
+		headers: {
+			Authorization: `Bearer ${EXPLICIT_NVIDIA_NIM_API_KEY_REF}`,
+			authorization: "Bearer stale-lowercase-key",
+			"x-test-header": "kept",
+		},
+		reasoning: "minimal",
+	});
+
+	let sawErrorEvent = false;
+	for await (const event of stream) {
+		if (event.type === "error") {
+			sawErrorEvent = true;
+		}
+	}
+
+	assert.equal(requestUrl, "https://integrate.api.nvidia.com/v1/chat/completions");
+	assert.equal(authorizationHeader, "Bearer nvapi-test-key");
+	assert.equal(testHeader, "kept");
+	assert.equal(sawErrorEvent, true);
+});
+
 
 test("fails locally when no configured key is available and the resolved request key is still the env placeholder", async (t) => {
 	const tempDir = mkdtempSync(join(tmpdir(), "pi-nvidia-nim-"));
@@ -297,7 +384,7 @@ test("fails locally when no configured key is available and the resolved request
 	assert.ok(model, "expected deepseek-ai/deepseek-v3.2 to be registered");
 
 	const apiKey = await getModelRequestApiKey(modelRegistry, model);
-	assert.equal(apiKey, "NVIDIA_NIM_API_KEY");
+	assert.equal(apiKey, EXPLICIT_NVIDIA_NIM_API_KEY_REF);
 
 	const originalFetch = globalThis.fetch;
 	const originalEnv = process.env.NVIDIA_NIM_API_KEY;
@@ -359,7 +446,7 @@ test("fails locally when an auth.json shell-command key resolves to an empty val
 	assert.ok(model, "expected deepseek-ai/deepseek-v3.2 to be registered");
 
 	const apiKey = await getModelRequestApiKey(modelRegistry, model);
-	assert.equal(apiKey, "NVIDIA_NIM_API_KEY");
+	assert.equal(apiKey, EXPLICIT_NVIDIA_NIM_API_KEY_REF);
 
 	const originalFetch = globalThis.fetch;
 	const originalEnv = process.env.NVIDIA_NIM_API_KEY;
@@ -583,7 +670,7 @@ test("discovers additional models with NVIDIA_NIM_API_KEY env fallback", async (
 	assert.ok(sessionStartHandler, "extension should register a session_start handler");
 
 	const unresolvedApiKey = await modelRegistry.getApiKeyForProvider("nvidia-nim");
-	assert.equal(unresolvedApiKey, "NVIDIA_NIM_API_KEY");
+	assert.equal(unresolvedApiKey, EXPLICIT_NVIDIA_NIM_API_KEY_REF);
 
 	const originalFetch = globalThis.fetch;
 	const originalEnv = process.env.NVIDIA_NIM_API_KEY;
@@ -636,6 +723,7 @@ test("discovers additional models with NVIDIA_NIM_API_KEY env fallback", async (
 	assert.equal(requestUrl, "https://integrate.api.nvidia.com/v1/models");
 	assert.equal(authorizationHeader, "Bearer nvapi-test-key");
 	assert.equal(registeredProviderName, "nvidia-nim");
+	assert.equal(registeredProviderConfig?.apiKey, EXPLICIT_NVIDIA_NIM_API_KEY_REF);
 	assert.ok(
 		registeredProviderConfig?.models?.some((model) => model.id === "acme/env-chat-model"),
 		"expected discovered models to be re-registered after env fallback",
@@ -776,7 +864,7 @@ test("skips model discovery quietly when no NVIDIA NIM credentials are configure
 	assert.ok(sessionStartHandler, "extension should register a session_start handler");
 
 	const unresolvedApiKey = await modelRegistry.getApiKeyForProvider("nvidia-nim");
-	assert.equal(unresolvedApiKey, "NVIDIA_NIM_API_KEY");
+	assert.equal(unresolvedApiKey, EXPLICIT_NVIDIA_NIM_API_KEY_REF);
 
 	const originalFetch = globalThis.fetch;
 	const originalEnv = process.env.NVIDIA_NIM_API_KEY;
@@ -938,7 +1026,7 @@ test("skips model discovery when an auth.json shell-command key resolves to an e
 	assert.ok(sessionStartHandler, "extension should register a session_start handler");
 
 	const apiKey = await modelRegistry.getApiKeyForProvider("nvidia-nim");
-	assert.equal(apiKey, "NVIDIA_NIM_API_KEY");
+	assert.equal(apiKey, EXPLICIT_NVIDIA_NIM_API_KEY_REF);
 
 	const originalFetch = globalThis.fetch;
 	const originalEnv = process.env.NVIDIA_NIM_API_KEY;

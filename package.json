@@ -1,6 +1,6 @@
 {
   "name": "pi-nvidia-nim",
-  "version": "1.1.21",
+  "version": "1.1.22",
   "description": "NVIDIA NIM API provider extension for pi coding agent — access 100+ models from build.nvidia.com",
   "type": "module",
   "files": [
@@ -25,7 +25,8 @@
   "devDependencies": {
     "@earendil-works/pi-ai": "^0.74.0",
     "@earendil-works/pi-coding-agent": "^0.74.0",
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.0.0",
+    "typescript": "^6.0.3"
   },
   "repository": {
     "type": "git",

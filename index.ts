@@ -359,12 +359,15 @@ const CONTEXT_WINDOWS: Record<string, number> = {
 	"nvidia/nvidia-nemotron-nano-9b-v2": 131072,
 	"nvidia/nemotron-3-nano-omni-30b-a3b-reasoning": 262144,
 	"nvidia/nemotron-3-nano-30b-a3b": 1048576,
+	"nvidia/nemotron-3-super-120b-a12b": 262144,
+	"nvidia/nemotron-3-ultra-550b-a55b": 262144,
 	// OpenAI open-source
 	"openai/gpt-oss-120b": 131072,
 	"openai/gpt-oss-20b": 131072,
 	// Z-AI / GLM
 	"z-ai/glm4.7": 131072,
 	"z-ai/glm5": 131072,
+	"glm/glm-5.1": 200000,
 	// StepFun
 	"stepfun-ai/step-3.5-flash": 131072,
 	// ByteDance
@@ -481,6 +484,7 @@ const FEATURED_MODELS = [
 	"nvidia/llama-3.3-nemotron-super-49b-v1",
 	"nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
 	"nvidia/nemotron-3-nano-30b-a3b",
+	"nvidia/nemotron-3-super-120b-a12b",
 	// DeepSeek R1 distilled
 	"deepseek-ai/deepseek-r1-distill-qwen-32b",
 	"deepseek-ai/deepseek-r1-distill-qwen-14b",

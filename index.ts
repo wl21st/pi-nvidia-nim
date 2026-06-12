@@ -435,7 +435,7 @@ const MAX_TOKENS: Record<string, number> = {
   "minimaxai/minimax-m2": 8192,
   "minimaxai/minimax-m2.1": 8192,
   "minimaxai/minimax-m2.7": 8192,
-  "minimaxai/minimax-m3": 131072,
+  "minimaxai/minimax-m3": 1048576,
   "meta/llama-4-maverick-17b-128e-instruct": 16384,
   "meta/llama-4-scout-17b-16e-instruct": 16384,
   "z-ai/glm4.7": 16384,

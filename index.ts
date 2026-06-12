@@ -228,6 +228,7 @@ const VISION_MODELS = new Set([
   "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
   "nvidia/nemotron-nano-12b-v2-vl",
   "nvidia/cosmos-reason2-8b",
+  "minimaxai/minimax-m3",
 ]);
 
 // Embedding / non-chat models to skip
@@ -434,6 +435,7 @@ const MAX_TOKENS: Record<string, number> = {
   "minimaxai/minimax-m2": 8192,
   "minimaxai/minimax-m2.1": 8192,
   "minimaxai/minimax-m2.7": 8192,
+  "minimaxai/minimax-m3": 131072,
   "meta/llama-4-maverick-17b-128e-instruct": 16384,
   "meta/llama-4-scout-17b-16e-instruct": 16384,
   "z-ai/glm4.7": 16384,
@@ -468,6 +470,7 @@ const FEATURED_MODELS = [
   "minimaxai/minimax-m2.1",
   "minimaxai/minimax-m2",
   "minimaxai/minimax-m2.7",
+  "minimaxai/minimax-m3",
   "z-ai/glm-5.1",
   "z-ai/glm5",
   "z-ai/glm4.7",

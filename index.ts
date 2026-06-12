@@ -302,6 +302,7 @@ const CONTEXT_WINDOWS: Record<string, number> = {
   "minimaxai/minimax-m2": 1048576,
   "minimaxai/minimax-m2.1": 1048576,
   "minimaxai/minimax-m2.7": 204800,
+  "minimaxai/minimax-m3": 1048576,
   // Meta Llama
   "meta/llama-3.1-405b-instruct": 131072,
   "meta/llama-3.1-70b-instruct": 131072,
@@ -435,7 +436,7 @@ const MAX_TOKENS: Record<string, number> = {
   "minimaxai/minimax-m2": 8192,
   "minimaxai/minimax-m2.1": 8192,
   "minimaxai/minimax-m2.7": 8192,
-  "minimaxai/minimax-m3": 1048576,
+  "minimaxai/minimax-m3": 16384,
   "meta/llama-4-maverick-17b-128e-instruct": 16384,
   "meta/llama-4-scout-17b-16e-instruct": 16384,
   "z-ai/glm4.7": 16384,

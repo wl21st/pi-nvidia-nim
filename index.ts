@@ -128,6 +128,10 @@ const THINKING_CONFIGS: Record<string, ThinkingConfig> = {
 		enableKwargs: { enable_thinking: true, clear_thinking: false },
 		disableKwargs: { enable_thinking: false },
 	},
+	"z-ai/glm5.1": {
+		enableKwargs: { enable_thinking: true, clear_thinking: false },
+		disableKwargs: { enable_thinking: false },
+	},
 	// Kimi models: chat_template_kwargs works, reasoning_effort also works
 	"moonshotai/kimi-k2.6": {
 		enableKwargs: { thinking: true },
@@ -367,7 +371,7 @@ const CONTEXT_WINDOWS: Record<string, number> = {
 	// Z-AI / GLM
 	"z-ai/glm4.7": 131072,
 	"z-ai/glm5": 131072,
-	"glm/glm-5.1": 200000,
+	"z-ai/glm-5.1": 200000,
 	// StepFun
 	"stepfun-ai/step-3.5-flash": 131072,
 	// ByteDance

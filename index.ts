@@ -63,6 +63,7 @@ const NVIDIA_API_KEY_ENV_NAMES = [
 ] as const;
 const PROVIDER_NAME = "nvidia-nim";
 const INKLING_MODEL_ID = "thinkingmachines/inkling";
+const MINIMAX_M3_MODEL_ID = "minimaxai/minimax-m3";
 
 // =============================================================================
 // Per-model thinking configuration
@@ -219,6 +220,7 @@ const THINKING_CONFIGS: Record<string, ThinkingConfig> = {
 const REASONING_MODELS = new Set([
   ...Object.keys(THINKING_CONFIGS),
   INKLING_MODEL_ID,
+  MINIMAX_M3_MODEL_ID,
 ]);
 
 // Models known to support image/vision input
@@ -233,7 +235,7 @@ const VISION_MODELS = new Set([
   "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
   "nvidia/nemotron-nano-12b-v2-vl",
   "nvidia/cosmos-reason2-8b",
-  "minimaxai/minimax-m3",
+  MINIMAX_M3_MODEL_ID,
   INKLING_MODEL_ID,
 ]);
 
@@ -308,7 +310,7 @@ const CONTEXT_WINDOWS: Record<string, number> = {
   "minimaxai/minimax-m2": 1048576,
   "minimaxai/minimax-m2.1": 1048576,
   "minimaxai/minimax-m2.7": 204800,
-  "minimaxai/minimax-m3": 1048576,
+  [MINIMAX_M3_MODEL_ID]: 1_048_576,
   // Meta Llama
   "meta/llama-3.1-405b-instruct": 131072,
   "meta/llama-3.1-70b-instruct": 131072,
@@ -444,7 +446,7 @@ const MAX_TOKENS: Record<string, number> = {
   "minimaxai/minimax-m2": 8192,
   "minimaxai/minimax-m2.1": 8192,
   "minimaxai/minimax-m2.7": 8192,
-  "minimaxai/minimax-m3": 16384,
+  [MINIMAX_M3_MODEL_ID]: 16_384,
   "meta/llama-4-maverick-17b-128e-instruct": 16384,
   "meta/llama-4-scout-17b-16e-instruct": 16384,
   "z-ai/glm4.7": 16384,
@@ -480,7 +482,7 @@ const FEATURED_MODELS = [
   "minimaxai/minimax-m2.1",
   "minimaxai/minimax-m2",
   "minimaxai/minimax-m2.7",
-  "minimaxai/minimax-m3",
+  MINIMAX_M3_MODEL_ID,
   "z-ai/glm-5.1",
   "z-ai/glm5",
   "z-ai/glm4.7",
@@ -906,6 +908,23 @@ function buildModelEntry(modelId: string): NimModelEntry | null {
     entry.compat.thinkingFormat = "chat-template";
     entry.compat.chatTemplateKwargs = {
       reasoning_effort: { $var: "thinking.effort" },
+    };
+  }
+
+  // MiniMax M3 exposes discrete reasoning modes through its chat template.
+  if (modelId === MINIMAX_M3_MODEL_ID) {
+    entry.thinkingLevelMap = {
+      off: "disabled",
+      minimal: "adaptive",
+      low: "adaptive",
+      medium: "adaptive",
+      high: "enabled",
+      xhigh: "enabled",
+      max: "enabled",
+    };
+    entry.compat.thinkingFormat = "chat-template";
+    entry.compat.chatTemplateKwargs = {
+      thinking_mode: { $var: "thinking.effort" },
     };
   }
 

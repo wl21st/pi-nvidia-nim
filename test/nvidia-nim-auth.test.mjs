@@ -95,7 +95,7 @@ test("loads through the current pi extension loader", async (t) => {
 		({ name }) => name === "nvidia-nim",
 	);
 	assert.equal(registration?.config.api, "openai-completions");
-	assert.equal(registration?.config.models?.length, 43);
+	assert.equal(registration?.config.models?.length, 44);
 	const inkling = registration?.config.models?.find(({ id }) => id === "thinkingmachines/inkling");
 	assert.deepEqual(
 		inkling && {
@@ -191,6 +191,100 @@ test("sends Inkling's full output budget and maps pi thinking levels to its chat
 				max_tokens: 16_384,
 				chat_template_kwargs: { reasoning_effort: "max" },
 			},
+		],
+	);
+});
+
+test("registers MiniMax M3 with native reasoning modes and a usable output budget", async (t) => {
+	const tempDir = mkdtempSync(join(tmpdir(), "pi-nvidia-nim-minimax-m3-"));
+	t.after(() => rmSync(tempDir, { recursive: true, force: true }));
+
+	const modelRegistry = await createModelRegistry(join(tempDir, "auth.json"), tempDir);
+	let providerConfig;
+	extension({
+		registerProvider(name, config) {
+			providerConfig = config;
+			modelRegistry.registerProvider(name, config);
+		},
+		on() {},
+	});
+
+	const model = modelRegistry.find("nvidia-nim", "minimaxai/minimax-m3");
+	assert.ok(model, "expected minimaxai/minimax-m3 to be registered");
+	assert.ok(providerConfig?.streamSimple, "extension should register a custom streamSimple");
+	assert.deepEqual(
+		{
+			reasoning: model.reasoning,
+			thinkingLevelMap: model.thinkingLevelMap,
+			input: model.input,
+			contextWindow: model.contextWindow,
+			maxTokens: model.maxTokens,
+			thinkingFormat: model.compat?.thinkingFormat,
+			chatTemplateKwargs: model.compat?.chatTemplateKwargs,
+		},
+		{
+			reasoning: true,
+			thinkingLevelMap: {
+				off: "disabled",
+				minimal: "adaptive",
+				low: "adaptive",
+				medium: "adaptive",
+				high: "enabled",
+				xhigh: "enabled",
+				max: "enabled",
+			},
+			input: ["text", "image"],
+			contextWindow: 1_048_576,
+			maxTokens: 16_384,
+			thinkingFormat: "chat-template",
+			chatTemplateKwargs: {
+				thinking_mode: { $var: "thinking.effort" },
+			},
+		},
+	);
+
+	const originalFetch = globalThis.fetch;
+	const requestBodies = [];
+	globalThis.fetch = async (_url, init) => {
+		requestBodies.push(JSON.parse(String(init?.body)));
+		return new Response("unauthorized", {
+			status: 401,
+			headers: { "content-type": "text/plain" },
+		});
+	};
+
+	t.after(() => {
+		globalThis.fetch = originalFetch;
+	});
+
+	for (const reasoning of [undefined, "minimal", "low", "medium", "high", "xhigh", "max"]) {
+		const stream = providerConfig.streamSimple(model, createUserContext(), {
+			apiKey: "ABC123",
+			reasoning,
+		});
+		for await (const _event of stream) {
+			// Consume the stream so the mocked request completes.
+		}
+	}
+
+	assert.equal(
+		requestBodies.some((body) => Object.hasOwn(body, "reasoning_effort")),
+		false,
+		"MiniMax M3 reasoning mode should only be sent through chat_template_kwargs",
+	);
+	assert.deepEqual(
+		requestBodies.map(({ max_tokens, chat_template_kwargs }) => ({
+			max_tokens,
+			chat_template_kwargs,
+		})),
+		[
+			{ max_tokens: 16_384, chat_template_kwargs: { thinking_mode: "disabled" } },
+			{ max_tokens: 16_384, chat_template_kwargs: { thinking_mode: "adaptive" } },
+			{ max_tokens: 16_384, chat_template_kwargs: { thinking_mode: "adaptive" } },
+			{ max_tokens: 16_384, chat_template_kwargs: { thinking_mode: "adaptive" } },
+			{ max_tokens: 16_384, chat_template_kwargs: { thinking_mode: "enabled" } },
+			{ max_tokens: 16_384, chat_template_kwargs: { thinking_mode: "enabled" } },
+			{ max_tokens: 16_384, chat_template_kwargs: { thinking_mode: "enabled" } },
 		],
 	);
 });

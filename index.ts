@@ -42,11 +42,12 @@ import type {
   Context,
   Model,
   SimpleStreamOptions,
+  ThinkingLevelMap,
 } from "@earendil-works/pi-ai";
-import { streamSimpleOpenAICompletions } from "@earendil-works/pi-ai";
+import { streamSimpleOpenAICompletions } from "@earendil-works/pi-ai/compat";
 import {
-  getAgentDir,
   type ExtensionAPI,
+  type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 
 // =============================================================================
@@ -61,6 +62,7 @@ const NVIDIA_API_KEY_ENV_NAMES = [
   NVIDIA_API_KEY_ENV,
 ] as const;
 const PROVIDER_NAME = "nvidia-nim";
+const INKLING_MODEL_ID = "thinkingmachines/inkling";
 
 // =============================================================================
 // Per-model thinking configuration
@@ -214,7 +216,10 @@ const THINKING_CONFIGS: Record<string, ThinkingConfig> = {
 // Reasoning models and their capabilities
 // =============================================================================
 
-const REASONING_MODELS = new Set(Object.keys(THINKING_CONFIGS));
+const REASONING_MODELS = new Set([
+  ...Object.keys(THINKING_CONFIGS),
+  INKLING_MODEL_ID,
+]);
 
 // Models known to support image/vision input
 const VISION_MODELS = new Set([
@@ -229,6 +234,7 @@ const VISION_MODELS = new Set([
   "nvidia/nemotron-nano-12b-v2-vl",
   "nvidia/cosmos-reason2-8b",
   "minimaxai/minimax-m3",
+  INKLING_MODEL_ID,
 ]);
 
 // Embedding / non-chat models to skip
@@ -377,6 +383,8 @@ const CONTEXT_WINDOWS: Record<string, number> = {
   "nvidia/nemotron-3-nano-30b-a3b": 1048576,
   "nvidia/nemotron-3-super-120b-a12b": 262144,
   "nvidia/nemotron-3-ultra-550b-a55b": 262144,
+  // Thinking Machines
+  [INKLING_MODEL_ID]: 1_048_576,
   // OpenAI open-source
   "openai/gpt-oss-120b": 131072,
   "openai/gpt-oss-20b": 131072,
@@ -450,6 +458,7 @@ const MAX_TOKENS: Record<string, number> = {
   "openai/gpt-oss-20b": 16384,
   "mistralai/mistral-large-3-675b-instruct-2512": 16384,
   "mistralai/devstral-2-123b-instruct-2512": 32768,
+  [INKLING_MODEL_ID]: 16_384,
 };
 
 // =============================================================================
@@ -479,6 +488,7 @@ const FEATURED_MODELS = [
   "openai/gpt-oss-20b",
   "stepfun-ai/step-3.5-flash",
   "bytedance/seed-oss-36b-instruct",
+  INKLING_MODEL_ID,
   // Qwen
   "qwen/qwen3-coder-480b-a35b-instruct",
   "qwen/qwen3-235b-a22b",
@@ -721,7 +731,7 @@ function buildNimRequestHeaders(
   const resolvedHeaders: Record<string, string> = {};
 
   for (const [key, value] of Object.entries(headers ?? {})) {
-    if (key.toLowerCase() === "authorization") continue;
+    if (key.toLowerCase() === "authorization" || value === null) continue;
     resolvedHeaders[key] = value;
   }
 
@@ -754,7 +764,9 @@ function nimStreamSimple(
 
   // Map provider-agnostic pi levels to NIM's accepted top-level values.
   // Model-specific chat_template_kwargs may apply a different mapping below.
-  const mappedReasoning = mapNimTopLevelReasoning(reasoning);
+  const mappedReasoning = thinkingConfig
+    ? mapNimTopLevelReasoning(reasoning)
+    : reasoning;
 
   // For models that have a thinking config: we handle thinking via chat_template_kwargs.
   // Suppress reasoning_effort (set reasoning to undefined) unless the model explicitly
@@ -837,6 +849,7 @@ interface NimModelEntry {
   id: string;
   name: string;
   reasoning: boolean;
+  thinkingLevelMap?: ThinkingLevelMap;
   input: ("text" | "image")[];
   contextWindow: number;
   maxTokens: number;
@@ -887,6 +900,15 @@ function buildModelEntry(modelId: string): NimModelEntry | null {
     maxTokensField: "max_tokens",
   };
 
+  // Inkling uses a chat-template reasoning field instead of top-level effort.
+  if (modelId === INKLING_MODEL_ID) {
+    entry.thinkingLevelMap = { off: "none", xhigh: "max", max: "max" };
+    entry.compat.thinkingFormat = "chat-template";
+    entry.compat.chatTemplateKwargs = {
+      reasoning_effort: { $var: "thinking.effort" },
+    };
+  }
+
   // Mistral models on NIM need extra compat flags
   if (modelId.startsWith("mistralai/")) {
     entry.compat.requiresToolResultName = true;
@@ -921,17 +943,22 @@ function sanitizeNimLogMessage(message: string): string {
   return message.replace(/nvapi-[A-Za-z0-9._-]+/g, "nvapi-[REDACTED]");
 }
 
-function notifyNimDiscoveryCredentialWarning(ctx: any): void {
-  ctx?.ui?.notify?.(NIM_DISCOVERY_CREDENTIAL_WARNING, "warning");
+function notifyNimDiscoveryCredentialWarning(ctx: ExtensionContext): void {
+  ctx.ui.notify(NIM_DISCOVERY_CREDENTIAL_WARNING, "warning");
 }
 
 async function resolveNimDiscoveryApiKey(
-  ctx: any,
+  ctx: ExtensionContext,
 ): Promise<string | undefined> {
   try {
-    const apiKey =
-      await ctx?.modelRegistry?.getApiKeyForProvider?.(PROVIDER_NAME);
-    return resolveNimApiKey(apiKey, ctx?.modelRegistry?.authStorage);
+    const apiKey = await ctx.modelRegistry.getApiKeyForProvider(PROVIDER_NAME);
+    if (
+      apiKey === undefined &&
+      ctx.modelRegistry.getProviderAuthStatus(PROVIDER_NAME).configured
+    ) {
+      throw new Error("NVIDIA NIM configured credential resolved to an empty value.");
+    }
+    return resolveNimApiKey(apiKey, ctx.modelRegistry.authStorage);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.warn(`pi-nvidia-nim: ${sanitizeNimLogMessage(message)}`);
@@ -1008,7 +1035,7 @@ export default function (pi: ExtensionAPI) {
   });
 
   // On session start, discover additional models from the API
-  pi.on("session_start", async (_event: any, ctx: any) => {
+  pi.on("session_start", async (_event, ctx) => {
     const apiKey = await resolveNimDiscoveryApiKey(ctx);
     if (!apiKey) return;
 

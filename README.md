@@ -1,6 +1,6 @@
 # pi-nvidia-nim
 
-NVIDIA NIM API provider extension for [pi coding agent](https://github.com/earendil-works/pi-mono) - access 100+ models from [build.nvidia.com](https://build.nvidia.com) including DeepSeek V4 Flash/Pro, DeepSeek V3.2, Kimi K2.6, MiniMax M2.1, GLM-5, GLM-4.7, Qwen3, Llama 4, and many more.
+NVIDIA NIM API provider extension for [pi coding agent](https://github.com/earendil-works/pi-mono) - access 100+ models from [build.nvidia.com](https://build.nvidia.com) including Inkling, DeepSeek V4 Flash/Pro, DeepSeek V3.2, Kimi K2.6, MiniMax M2.1, GLM-5, GLM-4.7, Qwen3, Llama 4, and many more.
 
 https://github.com/user-attachments/assets/f44773e4-9bf8-4bb5-a9c0-d5938030701c
 
@@ -74,35 +74,38 @@ NVIDIA NIM models use a non-standard `chat_template_kwargs` parameter to enable 
 
 When you change the thinking level in pi (`Shift+Tab` to cycle), the extension:
 
-1. **Maps thinking levels** to values each NIM model accepts. For DeepSeek V4, `xhigh` maps to `max`; lower enabled levels use `high`.
+1. **Maps thinking levels** to values each NIM model accepts. For Inkling and DeepSeek V4, extended levels map to `max`; other NIM models use their closest supported level.
 2. **Injects `chat_template_kwargs`** per model to actually enable thinking:
+   - Inkling: `{ reasoning_effort: "none" | "minimal" | "low" | "medium" | "high" | "max" }`
    - DeepSeek V4: `{ thinking: true, reasoning_effort: "high" | "max" }`
    - DeepSeek V3.x, R1 distills: `{ thinking: true }`
    - GLM-5, GLM-4.7: `{ enable_thinking: true, clear_thinking: false }`
    - Kimi K2.6, K2-thinking: `{ thinking: true }`
    - Qwen3, QwQ: `{ enable_thinking: true }`
-3. **Explicitly disables thinking** when the level is "off" for models that think by default (e.g., GLM-5, GLM-4.7).
+3. **Explicitly selects the lowest/off setting** when thinking is "off" for configurable models. Inkling documents this as a conditioning hint rather than a guarantee of zero reasoning tokens.
 4. **Uses `system` role** instead of `developer` for all NIM models - the `developer` role combined with `chat_template_kwargs` causes 500 errors on NIM.
 
 ### Supported thinking levels
 
 | pi Level | NIM Mapping | Effect |
 |----------|-------------|--------|
-| off | No kwargs (or explicit disable) | No reasoning output |
-| minimal | low, or high for DeepSeek V4 | Thinking enabled |
+| off | none or explicit disable | Lowest/no reasoning effort |
+| minimal | minimal for Inkling; low/high where required | Thinking enabled |
 | low | low, or high for DeepSeek V4 | Thinking enabled |
 | medium | medium, or high for DeepSeek V4 | Thinking enabled |
 | high | high | Thinking enabled |
-| xhigh | high, or max for DeepSeek V4 | Maximum supported thinking |
+| xhigh | max for Inkling/DeepSeek V4; closest supported level otherwise | Extended thinking |
+| max | max for Inkling/DeepSeek V4 | Maximum supported thinking |
 
 ## Available Models
 
-The extension ships with curated metadata for 42 featured models. At startup, it also queries the NVIDIA NIM API to discover additional models automatically.
+The extension ships with curated metadata for 43 featured models. At startup, it also queries the NVIDIA NIM API to discover additional models automatically.
 
 ### Featured Models
 
 | Model | Reasoning | Vision | Context |
 |-------|-----------|--------|---------|
+| `thinkingmachines/inkling` | ✅ | ✅ | 1M |
 | `deepseek-ai/deepseek-v4-flash` | ✅ | | 1M |
 | `deepseek-ai/deepseek-v4-pro` | ✅ | | 1M |
 | `deepseek-ai/deepseek-v3.2` | ✅ | | 128K |
@@ -138,7 +141,7 @@ This extension uses `pi.registerProvider()` to register NVIDIA NIM as a custom p
 The custom streamer:
 1. Intercepts the request payload via `onPayload` callback
 2. Injects `chat_template_kwargs` for models that need it to enable thinking
-3. Maps unsupported thinking levels to NIM-compatible values (`minimal` → `low`; `xhigh` → `high` or DeepSeek V4 `max`)
+3. Maps unsupported thinking levels to NIM-compatible values while preserving Inkling's native effort presets
 4. Suppresses `reasoning_effort` for models that don't respond to it (e.g., DeepSeek without kwargs)
 5. Uses the standard OpenAI SSE streaming format - pi already parses `reasoning_content` and `reasoning` fields from streaming deltas
 

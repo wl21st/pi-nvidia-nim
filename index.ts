@@ -46,6 +46,7 @@ import type {
 } from "@earendil-works/pi-ai";
 import { streamSimpleOpenAICompletions } from "@earendil-works/pi-ai/compat";
 import {
+  getAgentDir,
   type ExtensionAPI,
   type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
@@ -476,14 +477,12 @@ const FEATURED_MODELS = [
   "deepseek-ai/deepseek-v3.1-terminus",
   "moonshotai/kimi-k2.6",
   "moonshotai/kimi-k2-thinking",
-  "google/gemma-4-31b-it",
   "moonshotai/kimi-k2-instruct",
   "moonshotai/kimi-k2-instruct-0905",
   "minimaxai/minimax-m2.1",
   "minimaxai/minimax-m2",
   "minimaxai/minimax-m2.7",
   MINIMAX_M3_MODEL_ID,
-  "z-ai/glm-5.1",
   "z-ai/glm5",
   "z-ai/glm4.7",
   "openai/gpt-oss-120b",
@@ -514,9 +513,6 @@ const FEATURED_MODELS = [
   "nvidia/llama-3.1-nemotron-ultra-253b-v1",
   "nvidia/llama-3.3-nemotron-super-49b-v1.5",
   "nvidia/llama-3.3-nemotron-super-49b-v1",
-  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
-  "nvidia/nemotron-3-nano-30b-a3b",
-  "nvidia/nemotron-3-super-120b-a12b",
   // DeepSeek R1 distilled
   "deepseek-ai/deepseek-r1-distill-qwen-32b",
   "deepseek-ai/deepseek-r1-distill-qwen-14b",
@@ -684,6 +680,14 @@ function resolveNimApiKey(
   if (resolvedApiKey) {
     const envReferenceApiKey = resolveNimApiKeyEnvReference(resolvedApiKey);
     if (envReferenceApiKey) return envReferenceApiKey;
+
+    if (
+      /^[A-Za-z_][A-Za-z0-9_]*$/.test(resolvedApiKey) &&
+      Object.hasOwn(process.env, resolvedApiKey)
+    ) {
+      return normalizeResolvedNimApiKey(process.env[resolvedApiKey]);
+    }
+
     if (!isNimApiKeyEnvPlaceholder(resolvedApiKey)) return resolvedApiKey;
   }
 
@@ -977,7 +981,7 @@ async function resolveNimDiscoveryApiKey(
     ) {
       throw new Error("NVIDIA NIM configured credential resolved to an empty value.");
     }
-    return resolveNimApiKey(apiKey, ctx.modelRegistry.authStorage);
+    return resolveNimApiKey(apiKey);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.warn(`pi-nvidia-nim: ${sanitizeNimLogMessage(message)}`);
@@ -1086,14 +1090,19 @@ export default function (pi: ExtensionAPI) {
     // From event handlers/commands, we need to call the registry directly.
     if (newModelsAdded > 0) {
       const allModels = Array.from(modelMap.values());
-      ctx.modelRegistry.registerProvider(PROVIDER_NAME, {
+      const providerConfig = {
         baseUrl: NVIDIA_NIM_BASE_URL,
         apiKey: getNimProviderApiKeyConfig(),
         api: "openai-completions",
         authHeader: true,
         models: allModels,
         streamSimple: nimStreamSimple,
-      });
+      };
+      if (typeof ctx.modelRegistry?.registerProvider === "function") {
+        ctx.modelRegistry.registerProvider(PROVIDER_NAME, providerConfig);
+      } else {
+        pi.registerProvider(PROVIDER_NAME, providerConfig);
+      }
     }
   });
 }
